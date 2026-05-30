@@ -6464,6 +6464,11 @@ bool roaring_bitmap_remove_checked(roaring_bitmap_t *r, uint32_t x);
 /**
  * Check if value x is present
  */
+#ifdef __cplusplus
+// MSYS2/UCRT64: C++ objects otherwise emit an external inline definition that
+// collides with the C implementation exported by roaring.c at link time.
+static
+#endif
 inline bool roaring_bitmap_contains(const roaring_bitmap_t *r, uint32_t val) {
     const uint16_t hb = val >> 16;
     /*

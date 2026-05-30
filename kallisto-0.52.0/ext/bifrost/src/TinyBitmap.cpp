@@ -8,6 +8,8 @@
 #elif   defined(__MINGW32__) || defined(__MINGW64__)
 #define posix_memalign(ptr, alignment, size) (*(ptr) = __mingw_aligned_malloc(size, alignment), (*(ptr) ? 0 : errno))
 #define posix_memalign_free(ptr) __mingw_aligned_free(ptr)
+#else
+#define posix_memalign_free(ptr) free(ptr)
 #endif
 
 
@@ -97,7 +99,9 @@ void TinyBitmap::clear() {
 
     if (tiny_bmp != nullptr){
 
-        free(tiny_bmp);
+        // MSYS2/UCRT64: allocations above use aligned malloc, which must be
+        // paired with the matching aligned free to avoid heap corruption.
+        posix_memalign_free(tiny_bmp);
         tiny_bmp = nullptr;
     }
 }
@@ -745,7 +749,8 @@ size_t TinyBitmap::runOptimize() {
                     tiny_bmp_new[1] = new_cardinality;
                     tiny_bmp_new[2] = getOffset();
 
-                    free(tiny_bmp);
+                    // MSYS2/UCRT64: keep aligned allocation/deallocation pairs matched.
+                    posix_memalign_free(tiny_bmp);
 
                     tiny_bmp = tiny_bmp_new;
 
@@ -793,7 +798,8 @@ size_t TinyBitmap::runOptimize() {
 
                     tiny_bmp_new[k] = tiny_bmp[cardinality + 2];
 
-                    free(tiny_bmp);
+                    // MSYS2/UCRT64: keep aligned allocation/deallocation pairs matched.
+                    posix_memalign_free(tiny_bmp);
 
                     tiny_bmp = tiny_bmp_new;
 
@@ -826,7 +832,8 @@ size_t TinyBitmap::shrinkSize() {
 
     std::copy(tiny_bmp, tiny_bmp + new_sz, new_t_bmp);
 
-    free(tiny_bmp);
+    // MSYS2/UCRT64: keep aligned allocation/deallocation pairs matched.
+    posix_memalign_free(tiny_bmp);
     tiny_bmp = new_t_bmp;
 
     tiny_bmp[0] = (tiny_bmp[0] & ~sz_mask) | (new_sz << 3);
@@ -939,7 +946,8 @@ bool TinyBitmap::change_sz(const uint16_t sz_min) {
         std::memset(tiny_bmp_new, 0, new_sz * sizeof(uint16_t));
         std::copy(tiny_bmp, tiny_bmp + (new_sz >= sz ? sz : sz_min), tiny_bmp_new);
 
-        free(tiny_bmp);
+        // MSYS2/UCRT64: keep aligned allocation/deallocation pairs matched.
+        posix_memalign_free(tiny_bmp);
 
         tiny_bmp = tiny_bmp_new;
         tiny_bmp[0] = (tiny_bmp[0] & ~sz_mask) | (new_sz << 3);
@@ -1060,7 +1068,8 @@ bool TinyBitmap::switch_mode(const uint16_t sz_min, const uint16_t new_mode) {
         }
     }
 
-    if (tiny_bmp_new != nullptr) free(tiny_bmp_new);
+    // MSYS2/UCRT64: keep aligned allocation/deallocation pairs matched.
+    if (tiny_bmp_new != nullptr) posix_memalign_free(tiny_bmp_new);
 
     return true;
 }

@@ -76,7 +76,10 @@ static inline int ks_getc(kstream_t *ks)                 \
 
 #ifndef KSTRING_T
 #define KSTRING_T kstring_t
-typedef struct __kstring_t {
+/* MSYS2/UCRT64: packaged htslib forward-declares "struct kstring_t" before
+ * including kstring.h. Use the same struct tag here so kallisto's bundled
+ * kseq definition is compatible when BAM support includes htslib headers. */
+typedef struct kstring_t {
   size_t l, m;
   char *s;
 } kstring_t;

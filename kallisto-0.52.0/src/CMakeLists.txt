@@ -4,7 +4,7 @@ file(GLOB headers *.h *.hpp)
 list(REMOVE_ITEM sources main.cpp)
 
 if (USE_BAM)
-include_directories(../ext/htslib)
+include_directories(${HTSLIB_INCLUDE_DIRS})
 endif(USE_BAM)
 
 if(NOT MAX_KMER_SIZE)
@@ -15,15 +15,37 @@ add_compile_options(-Wno-subobject-linkage) # Suppress bifrost warning
 
 add_library(kallisto_core ${sources} ${headers})
 target_include_directories(kallisto_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+if(USE_BAM)
+    # MSYS2/UCRT64: htslib may come from the active MinGW prefix instead of the
+    # vendored ext/htslib tree, so use the library path selected by top-level CMake.
+    target_include_directories(kallisto_core PUBLIC ${HTSLIB_INCLUDE_DIRS})
+endif()
+if(USE_HDF5)
+    # MSYS2/UCRT64: HDF5 headers are resolved explicitly from the active MinGW
+    # prefix to avoid mixing MSYS and UCRT64 headers.
+    target_include_directories(kallisto_core PUBLIC ${HDF5_INCLUDE_DIRS})
+endif()
+# MSYS2/UCRT64: kallisto_core includes bifrost headers generated/configured by
+# ExternalProject, so build bifrost before compiling the core library.
+add_dependencies(kallisto_core bifrost)
 
 add_executable(kallisto main.cpp ${sources} ${headers})
+if(USE_BAM)
+    target_include_directories(kallisto PRIVATE ${HTSLIB_INCLUDE_DIRS})
+endif()
+if(USE_HDF5)
+    target_include_directories(kallisto PRIVATE ${HDF5_INCLUDE_DIRS})
+endif()
+# MSYS2/UCRT64: bifrost is an ExternalProject, so make the executable wait for
+# its static library before the link step.
+add_dependencies(kallisto bifrost)
 
 find_package( Threads REQUIRED )
-ExternalProject_Get_Property(bifrost install_dir)
+ExternalProject_Get_Property(bifrost binary_dir)
 if (USE_BAM)
-target_link_libraries(kallisto kallisto_core pthread ${CMAKE_CURRENT_SOURCE_DIR}/../ext/htslib/libhts.a ${install_dir}/build/src/libbifrost.a  -DMAX_KMER_SIZE=${MAX_KMER_SIZE})
+target_link_libraries(kallisto kallisto_core pthread ${HTSLIB_LIBRARIES} ${binary_dir}/src/libbifrost.a  -DMAX_KMER_SIZE=${MAX_KMER_SIZE})
 else()
-target_link_libraries(kallisto kallisto_core pthread ${install_dir}/build/src/libbifrost.a -DMAX_KMER_SIZE=${MAX_KMER_SIZE})
+target_link_libraries(kallisto kallisto_core pthread ${binary_dir}/src/libbifrost.a -DMAX_KMER_SIZE=${MAX_KMER_SIZE})
 endif(USE_BAM)
 
 if(LINK MATCHES static)
@@ -46,6 +68,22 @@ if(USE_HDF5)
 endif(USE_HDF5)
 
 if (NOT ZLIBNG)
+if(MINGW)
+    # MSYS2/UCRT64: prefer zlib from the same MinGW prefix as the compiler so
+    # MSYS headers from C:/msys64/usr/include are not mixed into UCRT64 builds.
+    get_filename_component(KALLISTO_MINGW_BIN_DIR "${CMAKE_CXX_COMPILER}" DIRECTORY)
+    get_filename_component(KALLISTO_MINGW_PREFIX "${KALLISTO_MINGW_BIN_DIR}" DIRECTORY)
+    if(EXISTS "${KALLISTO_MINGW_PREFIX}/include/zlib.h")
+        set(ZLIB_INCLUDE_DIR "${KALLISTO_MINGW_PREFIX}/include" CACHE PATH "zlib include directory" FORCE)
+        if(EXISTS "${KALLISTO_MINGW_PREFIX}/lib/libz.dll.a")
+            set(ZLIB_LIBRARY "${KALLISTO_MINGW_PREFIX}/lib/libz.dll.a" CACHE FILEPATH "zlib import library" FORCE)
+            set(ZLIB_LIBRARY_RELEASE "${KALLISTO_MINGW_PREFIX}/lib/libz.dll.a" CACHE FILEPATH "zlib release import library" FORCE)
+        elseif(EXISTS "${KALLISTO_MINGW_PREFIX}/lib/libz.a")
+            set(ZLIB_LIBRARY "${KALLISTO_MINGW_PREFIX}/lib/libz.a" CACHE FILEPATH "zlib static library" FORCE)
+            set(ZLIB_LIBRARY_RELEASE "${KALLISTO_MINGW_PREFIX}/lib/libz.a" CACHE FILEPATH "zlib release static library" FORCE)
+        endif()
+    endif()
+endif()
 find_package( ZLIB REQUIRED )
 
 if ( ZLIB_FOUND )

@@ -78,7 +78,9 @@ DataStorage<U>::DataStorage(const DataStorage& o) : color_sets(nullptr), shared_
 
         unitig_cs_link = new std::atomic<uint64_t>[sz_link];
 
-        for (size_t i = 0; i != sz_link; ++i) unitig_cs_link[i] = o.sz_link[i].load();
+        // MSYS2/UCRT64 GCC 16 instantiates this path and catches the upstream
+        // typo; copy the source unitig link bitmap just like the other copies.
+        for (size_t i = 0; i != sz_link; ++i) unitig_cs_link[i] = o.unitig_cs_link[i].load();
     }
 
     if ((o.data != nullptr) && (o.sz_cs != 0)){

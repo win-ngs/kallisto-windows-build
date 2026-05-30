@@ -1,4 +1,6 @@
-cmake_minimum_required(VERSION 3.0.0)
+# MSYS2/UCRT64 ships CMake 4.x, which rejects old policy compatibility;
+# 3.10 also avoids the deprecation warning emitted by current CMake.
+cmake_minimum_required(VERSION 3.10)
 
 project(kallisto)
 
@@ -6,6 +8,17 @@ include(GNUInstallDirs)
 
 if(NOT MAX_KMER_SIZE)
     set(MAX_KMER_SIZE "32")
+endif()
+
+if(MINGW)
+    # MSYS2/UCRT64 release builds should not depend on the build machine's CPU
+    # features; let users opt back in explicitly for local optimized builds.
+    if(NOT DEFINED ENABLE_AVX2)
+        set(ENABLE_AVX2 "OFF" CACHE STRING "Enable AVX2 instructions")
+    endif()
+    if(NOT DEFINED COMPILATION_ARCH)
+        set(COMPILATION_ARCH "OFF" CACHE STRING "Native CPU architecture tuning")
+    endif()
 endif()
 
 set(DO_ENABLE_AVX2 "")
@@ -38,6 +51,13 @@ endif()
 
 set(EXT_PROJECTS_DIR ${PROJECT_SOURCE_DIR}/ext)
 set(CMAKE_CXX_FLAGS_PROFILE "-g")
+
+if(MINGW)
+    # MSYS2/UCRT64: derive the active MinGW prefix from the selected compiler so
+    # optional libraries are taken from UCRT64, not from the MSYS POSIX runtime.
+    get_filename_component(KALLISTO_MINGW_BIN_DIR "${CMAKE_CXX_COMPILER}" DIRECTORY)
+    get_filename_component(KALLISTO_MINGW_PREFIX "${KALLISTO_MINGW_BIN_DIR}" DIRECTORY)
+endif()
 
 # Set Release type for builds where CMAKE_BUILD_TYPE is unset
 # This is usually a good default as this implictly enables
@@ -82,23 +102,84 @@ ENDIF(LINK MATCHES static)
 
 include(ExternalProject)
 if (USE_BAM)
-ExternalProject_Add(htslib
-    PREFIX ${PROJECT_SOURCE_DIR}/ext/htslib
-    SOURCE_DIR ${PROJECT_SOURCE_DIR}/ext/htslib
-    BUILD_IN_SOURCE 1
-    CONFIGURE_COMMAND "" #autoreconf -i && autoheader &&  autoconf && ${PROJECT_SOURCE_DIR}/ext/htslib/configure
-        #--prefix=${PREFIX} --disable-bz2 --disable-lzma --disable-libcurl
-    BUILD_COMMAND "" #make lib-static
-    INSTALL_COMMAND ""
-)
+    if(MINGW)
+        # MSYS2/UCRT64: use the packaged native htslib import library. The
+        # vendored htslib ExternalProject does not build libhts.a on Windows.
+        find_path(HTSLIB_INCLUDE_DIR
+            NAMES htslib/sam.h
+            PATHS "${KALLISTO_MINGW_PREFIX}/include"
+            NO_DEFAULT_PATH)
+        find_library(HTSLIB_LIBRARY
+            NAMES hts
+            PATHS "${KALLISTO_MINGW_PREFIX}/lib"
+            NO_DEFAULT_PATH)
+        if(NOT HTSLIB_INCLUDE_DIR OR NOT HTSLIB_LIBRARY)
+            message(FATAL_ERROR "HTSlib was requested but was not found in ${KALLISTO_MINGW_PREFIX}. Install mingw-w64-ucrt-x86_64-htslib.")
+        endif()
+        set(HTSLIB_INCLUDE_DIRS "${HTSLIB_INCLUDE_DIR}")
+        set(HTSLIB_LIBRARIES "${HTSLIB_LIBRARY}")
+    else()
+        ExternalProject_Add(htslib
+            PREFIX ${PROJECT_SOURCE_DIR}/ext/htslib
+            SOURCE_DIR ${PROJECT_SOURCE_DIR}/ext/htslib
+            BUILD_IN_SOURCE 1
+            CONFIGURE_COMMAND "" #autoreconf -i && autoheader &&  autoconf && ${PROJECT_SOURCE_DIR}/ext/htslib/configure
+                #--prefix=${PREFIX} --disable-bz2 --disable-lzma --disable-libcurl
+            BUILD_COMMAND "" #make lib-static
+            INSTALL_COMMAND ""
+        )
+        set(HTSLIB_INCLUDE_DIRS "${PROJECT_SOURCE_DIR}/ext/htslib")
+        set(HTSLIB_LIBRARIES "${PROJECT_SOURCE_DIR}/ext/htslib/libhts.a")
+    endif()
 endif(USE_BAM)
 
+if(MINGW)
+    # MSYS2/UCRT64: pass zlib from the active MinGW compiler prefix into
+    # ExternalProject builds so their CMake runs do not pick MSYS zlib.
+    if(EXISTS "${KALLISTO_MINGW_PREFIX}/include/zlib.h")
+        if(EXISTS "${KALLISTO_MINGW_PREFIX}/lib/libz.dll.a")
+            set(KALLISTO_MINGW_ZLIB_LIBRARY "${KALLISTO_MINGW_PREFIX}/lib/libz.dll.a")
+        elseif(EXISTS "${KALLISTO_MINGW_PREFIX}/lib/libz.a")
+            set(KALLISTO_MINGW_ZLIB_LIBRARY "${KALLISTO_MINGW_PREFIX}/lib/libz.a")
+        endif()
+
+        if(KALLISTO_MINGW_ZLIB_LIBRARY)
+            set(KALLISTO_EXTERNAL_ZLIB_ARGS
+                -DZLIB_INCLUDE_DIR=${KALLISTO_MINGW_PREFIX}/include
+                -DZLIB_LIBRARY=${KALLISTO_MINGW_ZLIB_LIBRARY}
+                -DZLIB_LIBRARY_RELEASE=${KALLISTO_MINGW_ZLIB_LIBRARY})
+        endif()
+    endif()
+endif()
+
+set(BIFROST_BINARY_DIR ${PROJECT_BINARY_DIR}/bifrost-build)
+
 ExternalProject_Add(bifrost
-    PREFIX ${PROJECT_SOURCE_DIR}/ext/bifrost
+    # MSYS2/UCRT64: keep ExternalProject stamps under the current build tree;
+    # sharing stamps from the source tree makes separate build directories think
+    # Bifrost is already built even when their libbifrost.a does not exist.
+    PREFIX ${PROJECT_BINARY_DIR}/bifrost-prefix
     SOURCE_DIR ${PROJECT_SOURCE_DIR}/ext/bifrost
-    BUILD_IN_SOURCE 1
-    CONFIGURE_COMMAND mkdir -p build && cd build && cmake .. -DMAX_KMER_SIZE=${MAX_KMER_SIZE} -DCMAKE_INSTALL_PREFIX=${PREFIX} -DCMAKE_CXX_FLAGS=${PROJECT_BIFROST_CMAKE_CXX_FLAGS} ${DO_ENABLE_AVX2} ${DO_ENABLE_COMPILATION_ARCH}
-    BUILD_COMMAND cd build && make
+    BINARY_DIR ${BIFROST_BINARY_DIR}
+    # MSYS2/UCRT64: keep bifrost on the same generator, make program, and
+    # compiler prefix as kallisto; otherwise CMake may choose Ninja/MSYS tools
+    # while the parent build is using UCRT64 Makefiles.
+    CONFIGURE_COMMAND
+        ${CMAKE_COMMAND}
+            -S <SOURCE_DIR>
+            -B <BINARY_DIR>
+            -G ${CMAKE_GENERATOR}
+            -DCMAKE_MAKE_PROGRAM=${CMAKE_MAKE_PROGRAM}
+            -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
+            -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}
+            -DCMAKE_POLICY_VERSION_MINIMUM=3.10
+            -DMAX_KMER_SIZE=${MAX_KMER_SIZE}
+            -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>
+            -DCMAKE_CXX_FLAGS=${PROJECT_BIFROST_CMAKE_CXX_FLAGS}
+            ${KALLISTO_EXTERNAL_ZLIB_ARGS}
+            ${DO_ENABLE_AVX2}
+            ${DO_ENABLE_COMPILATION_ARCH}
+    BUILD_COMMAND ${CMAKE_COMMAND} --build <BINARY_DIR>
     INSTALL_COMMAND ""
 )
 
@@ -115,13 +196,37 @@ if (ZLIBNG)
 endif(ZLIBNG)
 
 if (USE_BAM)
-    include_directories(${htslib_PREFIX}/src/htslib)
+    include_directories(${HTSLIB_INCLUDE_DIRS})
 endif(USE_BAM)
 
-include_directories(${EXT_PROJECTS_DIR}/bifrost/build/src)
+if(USE_HDF5)
+    if(MINGW)
+        # MSYS2/UCRT64: find HDF5 in the active UCRT64 prefix explicitly. The
+        # default CMake search path can otherwise prefer MSYS headers/libs.
+        find_path(HDF5_INCLUDE_DIR
+            NAMES hdf5.h
+            PATHS "${KALLISTO_MINGW_PREFIX}/include"
+            NO_DEFAULT_PATH)
+        find_library(HDF5_LIBRARY
+            NAMES hdf5
+            PATHS "${KALLISTO_MINGW_PREFIX}/lib"
+            NO_DEFAULT_PATH)
+        if(NOT HDF5_INCLUDE_DIR OR NOT HDF5_LIBRARY)
+            message(FATAL_ERROR "HDF5 was requested but was not found in ${KALLISTO_MINGW_PREFIX}. Install mingw-w64-ucrt-x86_64-hdf5.")
+        endif()
+        set(HDF5_INCLUDE_DIRS "${HDF5_INCLUDE_DIR}")
+        set(HDF5_LIBRARIES "${HDF5_LIBRARY}")
+    else()
+        find_package(HDF5 REQUIRED)
+    endif()
+endif(USE_HDF5)
 
-ExternalProject_Get_Property(bifrost install_dir)
-include_directories(${install_dir}/src)
+ExternalProject_Get_Property(bifrost binary_dir)
+include_directories(${binary_dir}/src)
+ExternalProject_Get_Property(bifrost source_dir)
+# MSYS2/UCRT64: Bifrost headers live in the ExternalProject source tree, while
+# generated/configured files are in the binary tree; include both explicitly.
+include_directories(${source_dir}/src)
 
 
 
