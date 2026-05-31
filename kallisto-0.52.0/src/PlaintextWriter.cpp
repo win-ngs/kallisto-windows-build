@@ -35,7 +35,8 @@ void plaintext_writer(
     ){
 
   std::ofstream of;
-  of.open( out_name );
+  // MSYS2/UCRT64: open binary so text output uses LF (not CRLF) on native Windows.
+  of.open( out_name, std::ios::out | std::ios::binary );
 
   if (!of.is_open()) {
     std::cerr << "Error: Couldn't open file: " << out_name << std::endl;
@@ -73,7 +74,8 @@ void plaintext_writer_gene(
 ){
 
   std::ofstream of;
-  of.open( out_name );
+  // MSYS2/UCRT64: open binary so text output uses LF (not CRLF) on native Windows.
+  of.open( out_name, std::ios::out | std::ios::binary );
 
   if (!of.is_open()) {
     std::cerr << "Error: Couldn't open file: " << out_name << std::endl;
@@ -151,7 +153,8 @@ void plaintext_aux(
     const std::string& call,
     const std::string& cardinality_clashes) {
   std::ofstream of;
-  of.open( out_name );
+  // MSYS2/UCRT64: open binary so text output uses LF (not CRLF) on native Windows.
+  of.open( out_name, std::ios::out | std::ios::binary );
 
   double p_uniq =0.0;
   double p_aln = 0.0;
@@ -236,7 +239,8 @@ void writeECList(
   const std::string &filename,
   const KmerIndex &index) {
     std::ofstream ecof;
-    ecof.open(filename.c_str(), std::ios::out);
+    // MSYS2/UCRT64: binary mode keeps LF line endings on native Windows.
+    ecof.open(filename.c_str(), std::ios::out | std::ios::binary);
 
     if (!ecof.is_open()) {
       std::cerr << "Error: Couldn't open file: " << filename << std::endl;
@@ -271,7 +275,8 @@ void writeCellIds(
 
     std::ofstream cellsof;
     // write cell ids, one line per id
-    cellsof.open(filename.c_str(), std::ios::out);
+    // MSYS2/UCRT64: binary mode keeps LF line endings on native Windows.
+    cellsof.open(filename.c_str(), std::ios::out | std::ios::binary);
 
     if (!cellsof.is_open()) {
       std::cerr << "Error: Couldn't open file: " << filename << std::endl;
@@ -286,7 +291,8 @@ void writeCellIds(
 
 void writeFLD(const std::string &filename, const std::vector<std::pair<double, double>> &flds) {
   std::ofstream of;
-  of.open(filename.c_str(), std::ios::out);
+  // MSYS2/UCRT64: binary mode keeps LF line endings on native Windows.
+  of.open(filename.c_str(), std::ios::out | std::ios::binary);
   if (!of.is_open()) {
     std::cerr << "Error: Couldn't open file: " << filename << std::endl;
     exit(1);
@@ -299,7 +305,8 @@ void writeFLD(const std::string &filename, const std::vector<std::pair<double, d
 
 void writeGeneList(const std::string &filename, const Transcriptome& model, bool writeNamesOnly) {
   std::ofstream of;
-  of.open(filename.c_str(), std::ios::out);
+  // MSYS2/UCRT64: binary mode keeps LF line endings on native Windows.
+  of.open(filename.c_str(), std::ios::out | std::ios::binary);
   if (!of.is_open()) {
     std::cerr << "Error: Couldn't open file: " << filename << std::endl;
     exit(1);

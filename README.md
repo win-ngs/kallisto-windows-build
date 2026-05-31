@@ -222,11 +222,14 @@ upstream BUILD_FUNCTESTING test target: index section and quant section
 The release build disables AVX2 and native CPU tuning so the binary is not tied
 to the CPU features of the build machine.
 
-The upstream functional test script writes and hashes text files. On native
-Windows/UCRT64, text output may be CRLF, so the test script normalizes CRLF to
-LF before comparing upstream md5 sums. With that normalization, all upstream
-functional `index` tests and all `quant` tests passed. The script stops before
-the `bus` section because `bustools` is not installed in this environment.
+The upstream functional test script writes and hashes text files. Because the
+patched build opens plain-text output files in binary mode, `kallisto.exe`
+writes LF line endings even on native Windows/UCRT64, so its output is
+byte-identical to the upstream Linux output. The **unmodified** upstream test
+script was run, with no CRLF-to-LF normalization, and all upstream functional
+`index` tests and all `quant` tests passed against the upstream LF-based md5
+sums. The script stops before the `bus` section because `bustools` is not
+installed in this environment.
 
 `kallisto.exe version` reported:
 
@@ -238,9 +241,9 @@ kallisto, version 0.52.0
 
 The upstream kallisto 0.52.0 source did not build unchanged in this
 MSYS2-UCRT64 environment. The compatibility changes are limited to build-system
-integration and vendored Bifrost source issues exposed by GCC 16 and the native
-Windows runtime. Paths below are relative to the upstream source directory
-`kallisto-0.52.0/`.
+integration, line-ending handling, and vendored Bifrost source issues exposed by
+GCC 16 and the native Windows runtime. Paths below are relative to the upstream
+source directory `kallisto-0.52.0/`.
 
 | File | Change | Reason |
 |---|---|---|
@@ -261,7 +264,7 @@ Windows runtime. Paths below are relative to the upstream source directory
 | `ext/bifrost/src/kseq.h` | Changed Bifrost's local `kstring_t` typedef to use the `struct kstring_t` tag | Prevents a second `kstring_t` conflict when Bifrost and HTSlib headers are included together |
 | `ext/bifrost/src/roaring.h` | Adds C++-only `static` linkage to the inline `roaring_bitmap_contains` helper | Avoids a link-time multiple definition with the C implementation in `roaring.c` |
 | `ext/bifrost/src/TinyBitmap.cpp` | Replaced `free()` calls for `posix_memalign()`-style TinyBitmap buffers with `posix_memalign_free()` | UCRT64 uses the native Windows CRT, where freeing `_aligned_malloc` memory with `free()` corrupts the heap during `kallisto index` |
-| `func_tests/runtests.sh` | Normalizes CRLF to LF before md5 comparisons | Native Windows text output can otherwise fail upstream LF-based expected hashes |
+| `src/PlaintextWriter.cpp`, `src/PlaintextWriter.h`, `src/main.cpp`, `src/ProcessReads.cpp`, `src/ProcessReads.h`, `src/EMAlgorithm.h`, `src/Inspect.h` | Open plain-text output files with `std::ios::binary` | Forces LF line endings on native Windows so text outputs (`abundance.tsv`, `run_info.json`, `*.mtx`, `transcripts.txt`, `matrix.ec`, etc.) stay byte-identical to upstream Linux output; input parsing is left untouched |
 
 The release executable is a single-dispatch command-line tool. No runtime
 dispatcher, manual `PATH` splitting, or `argv[0]`-based companion executable

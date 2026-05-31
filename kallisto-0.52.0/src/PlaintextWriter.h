@@ -86,7 +86,8 @@ void writeSparseBatchMatrix(
       }
     }
   }
-  of.open(filename.c_str(), std::ios::out);
+  // MSYS2/UCRT64: binary mode keeps LF line endings on native Windows.
+  of.open(filename.c_str(), std::ios::out | std::ios::binary);
   of << "%%MatrixMarket matrix coordinate real general\n";
   of << num_rows << "\t" << num_cols << "\t" << num_entries << "\n";
   if (!data.empty()) {

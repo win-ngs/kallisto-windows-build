@@ -2600,7 +2600,8 @@ int main(int argc, char *argv[]) {
         // Write out fragment length distributions if reads paired-end or long:
         if (!opt.single_end || opt.long_read) {
           std::remove((opt.output + "/flens.txt").c_str());
-          std::ofstream flensout_f((opt.output + "/flens.txt"));
+          // MSYS2/UCRT64: binary mode keeps LF line endings on native Windows.
+          std::ofstream flensout_f((opt.output + "/flens.txt"), std::ios::out | std::ios::binary);
           for (size_t id = 0; id < opt.batch_ids.size(); id++) {
             if (opt.long_read) {
               // Should I be using batchFlens?
@@ -2636,7 +2637,8 @@ int main(int argc, char *argv[]) {
           flensout_f.close();
 
           if (opt.unmapped) {
-            std::ofstream um_f((opt.output + "/unmapped_ratio.txt"));
+            // MSYS2/UCRT64: binary mode keeps LF line endings on native Windows.
+            std::ofstream um_f((opt.output + "/unmapped_ratio.txt"), std::ios::out | std::ios::binary);
             for (size_t id = 0; id < opt.batch_ids.size(); id++) {
               std::vector<double> unmapped_l = MP.tc.unmapped_list;
               for (size_t i = 0; i < unmapped_l.size(); ++i) {
@@ -2698,7 +2700,8 @@ int main(int argc, char *argv[]) {
           index.write((opt.output + "/index.saved"), false, opt.threads);
           // Write out fragment length distribution:
           std::remove((opt.output + "/flens.txt").c_str());
-          std::ofstream flensout_f((opt.output + "/flens.txt"));
+          // MSYS2/UCRT64: binary mode keeps LF line endings on native Windows.
+          std::ofstream flensout_f((opt.output + "/flens.txt"), std::ios::out | std::ios::binary);
           for (size_t i = 0; i < fld.size(); ++i) {
             if (i != 0) {
               flensout_f << " ";
@@ -2715,7 +2718,8 @@ int main(int argc, char *argv[]) {
           index.write((opt.output + "/index.saved"), false, opt.threads);
           // Write out fragment length distribution:
           std::remove((opt.output + "/flens.txt").c_str());
-          std::ofstream flensout_f((opt.output + "/flens.txt"));
+          // MSYS2/UCRT64: binary mode keeps LF line endings on native Windows.
+          std::ofstream flensout_f((opt.output + "/flens.txt"), std::ios::out | std::ios::binary);
           for (size_t i = 0; i < fld.size(); ++i) {
             if (i > 0.0001) {
               flensout_f << " ";
@@ -2734,7 +2738,8 @@ int main(int argc, char *argv[]) {
           flensout_f.close();
 
           if (opt.unmapped) {
-            std::ofstream um_f((opt.output + "/unmapped_ratio.txt"));
+            // MSYS2/UCRT64: binary mode keeps LF line endings on native Windows.
+            std::ofstream um_f((opt.output + "/unmapped_ratio.txt"), std::ios::out | std::ios::binary);
             std::vector<double> unmapped_l = collection.unmapped_list;
             for (size_t i = 0; i < unmapped_l.size(); ++i) {
               if (i != 0) {
@@ -2752,7 +2757,8 @@ int main(int argc, char *argv[]) {
       writeECList(ecfilename, index);
 
       // write transcript names
-      std::ofstream transout_f((opt.output + "/transcripts.txt"));
+      // MSYS2/UCRT64: binary mode keeps LF line endings on native Windows.
+      std::ofstream transout_f((opt.output + "/transcripts.txt"), std::ios::out | std::ios::binary);
       for (size_t i = 0; i < index.onlist_sequences.cardinality(); i++) {
         transout_f << index.target_names_[i] << "\n";
       }
@@ -3102,7 +3108,8 @@ int main(int argc, char *argv[]) {
         Transcriptome model;  // empty model
 
         if (index.onlist_sequences.cardinality() > 0) {
-          std::ofstream transout_f((opt.output + "/transcripts.txt"));
+          // MSYS2/UCRT64: binary mode keeps LF line endings on native Windows.
+          std::ofstream transout_f((opt.output + "/transcripts.txt"), std::ios::out | std::ios::binary);
           for (size_t i = 0; i < index.onlist_sequences.cardinality(); i++) {
             transout_f << index.target_names_[i] << "\n";
           }
@@ -3420,7 +3427,8 @@ int main(int argc, char *argv[]) {
         }
         if (calcEffLen) {
           writeFLD(fldfilename, FLD_mat);
-          std::ofstream translens_f((opt.output + "/transcript_lengths.txt"));
+          // MSYS2/UCRT64: binary mode keeps LF line endings on native Windows.
+          std::ofstream translens_f((opt.output + "/transcript_lengths.txt"), std::ios::out | std::ios::binary);
           for (size_t i = 0; i < num_trans; i++) {
             translens_f << index.target_names_[i] << " " << index.target_lens_[i] << "\n";
           }

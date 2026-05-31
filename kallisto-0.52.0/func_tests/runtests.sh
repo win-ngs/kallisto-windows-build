@@ -30,9 +30,7 @@ checkcmdoutput() {
 	cmd="$1"
 	correct_md5="$2"
 	printf "$cmd\n"
-	# MSYS2/UCRT64: kallisto is a native Windows executable, so text output may
-	# use CRLF line endings. Normalize to LF before comparing upstream md5 sums.
-	output_md5=$(eval "$cmd"|tr -d '\r'|md5sum|awk '{ print $1 }')  # Use 'md5 -r' instead of 'md5sum' on Mac
+	output_md5=$(eval "$cmd"|md5sum|awk '{ print $1 }')  # Use 'md5 -r' instead of 'md5sum' on Mac
 	if [ "$output_md5" = "$correct_md5" ]; then
 		printf "^[Output OK]\n"
 	else
@@ -364,5 +362,3 @@ cmdexec "$bustools sort -o $test_dir/busbulklarge/output.s.bus -t 12 $test_dir/b
 cmdexec "$bustools count --cm -m -o $test_dir/busbulklarge/counts_tcc/ -g $test_dir/t2g_test.txt -t $test_dir/busbulklarge/transcripts.txt -e $test_dir/busbulklarge/matrix.ec $test_dir/busbulklarge/output.bus"
 cmdexec "$kallisto quant-tcc -o $test_dir/quant_tcc_test1/ -l 5 -s 2 -i $test_dir/busbulklarge/index.saved -g $test_dir/t2g_test.txt -e $test_dir/busbulklarge/counts_tcc/output.ec.txt $test_dir/busbulklarge/counts_tcc/output.mtx"
 checkcmdoutput "cat $test_dir/quant_tcc_test1/matrix.abundance.gene.tpm.mtx" ed7c7fa08e283cc6a1b136cc0e1ab039
-
-

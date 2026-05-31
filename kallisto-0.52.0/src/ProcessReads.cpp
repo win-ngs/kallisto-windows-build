@@ -253,7 +253,8 @@ int64_t ProcessReads(MasterProcessor &MP, const ProgramOptions &opt) {
   if (opt.write_index) {
     std::string outfile = opt.output + "/counts.txt";
     std::ofstream of;
-    of.open(outfile.c_str(), std::ios::out);
+    // MSYS2/UCRT64: binary mode keeps LF line endings on native Windows.
+    of.open(outfile.c_str(), std::ios::out | std::ios::binary);
     MP.tc.write(of);
     of.close();
   }

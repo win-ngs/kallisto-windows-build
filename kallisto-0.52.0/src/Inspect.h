@@ -206,7 +206,8 @@ void InspectIndex(const KmerIndex& index, const ProgramOptions& opt) {
     }
 
     std::ofstream out;
-    out.open(bed);
+    // MSYS2/UCRT64: binary mode keeps LF line endings on native Windows.
+    out.open(bed, std::ios::out | std::ios::binary);
 
     out << "track name=\"Kallisto \" gffTags=\"on\"\n";
     std::unordered_map<TranscriptAlignment, std::vector<int>> cmap;

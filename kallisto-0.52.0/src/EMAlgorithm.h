@@ -401,7 +401,8 @@ struct EMAlgorithm {
   // DEPRECATED:
   void write(const std::string& out_fname) const {
     std::ofstream out;
-    out.open(out_fname, std::ios::out);
+    // MSYS2/UCRT64: binary mode keeps LF line endings on native Windows.
+    out.open(out_fname, std::ios::out | std::ios::binary);
 
     if (!out.is_open()) {
       std::cerr << "Error opening '" << out_fname << "'" <<

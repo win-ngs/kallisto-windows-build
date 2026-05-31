@@ -223,11 +223,13 @@ public:
         }
       }
       if (opt.fusion) {
-        ofusion.open(opt.output + "/fusion.txt");
+        // MSYS2/UCRT64: binary mode keeps LF line endings on native Windows.
+        ofusion.open(opt.output + "/fusion.txt", std::ios::out | std::ios::binary);
         ofusion << "TYPE\tNAME1\tSEQ1\tKPOS1\tNAME2\tSEQ2\tKPOS2\tINFO\tPOS1\tPOS2\n";
       }
       if (opt.long_read) {
-        ofusion.open(opt.output + "/novel.fastq");
+        // MSYS2/UCRT64: binary mode keeps LF line endings on native Windows.
+        ofusion.open(opt.output + "/novel.fastq", std::ios::out | std::ios::binary);
       }
       if (opt.pseudobam) {
         pseudobatchf_out.open(opt.output + "/pseudoaln.bin", std::ios::out | std::ios::binary);
