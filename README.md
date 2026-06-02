@@ -80,19 +80,19 @@ the ZIP are needed for the program to start.
 
 ## Source Tree
 
-The patched upstream source tree is kept under `kallisto-0.52.0/` in this
+The patched upstream source tree is kept under `kallisto-0.52.0-patch/` in this
 repository. The binary release ZIP does not include that source tree; it only
 contains `kallisto.exe`, required DLLs, and documentation.
 
 ```text
-kallisto-0.52.0/
+kallisto-0.52.0-patch/
 ```
 
 The upstream kallisto README and license are kept inside that directory:
 
 ```text
-kallisto-0.52.0/README.md
-kallisto-0.52.0/license.txt
+kallisto-0.52.0-patch/README.md
+kallisto-0.52.0-patch/license.txt
 ```
 
 Build outputs such as `build-ucrt64-clean/` and release ZIP files are not meant
@@ -105,30 +105,38 @@ You do not need to build kallisto yourself if you only want to use the released
 Windows binary. This section is for maintainers or users who want to recreate
 the build.
 
-Install [MSYS2](https://www.msys2.org/) first. Open a shell that can access the
-MSYS2-UCRT64 toolchain and make sure these packages are installed:
+Install [MSYS2](https://www.msys2.org/) first. Open the **MSYS2 UCRT64** shell
+from the Windows Start menu. Do not run the build commands from the plain MSYS
+shell, MINGW64 shell, CLANG64 shell, PowerShell, or Command Prompt.
+
+In the MSYS2 UCRT64 shell, install the required packages:
 
 ```sh
 pacman -S --needed \
   base-devel \
+  mingw-w64-ucrt-x86_64-toolchain \
   mingw-w64-ucrt-x86_64-cmake \
-  mingw-w64-ucrt-x86_64-gcc \
   mingw-w64-ucrt-x86_64-hdf5 \
   mingw-w64-ucrt-x86_64-htslib \
-  mingw-w64-ucrt-x86_64-make \
   mingw-w64-ucrt-x86_64-zlib
 ```
 
-Configure and build kallisto:
+Clone this repository and move into it:
 
 ```sh
-PATH=/ucrt64/bin:/usr/bin:$PATH
-cmake -S /c/path/to/kallisto-windows-build/kallisto-0.52.0 \
-  -B /c/path/to/kallisto-windows-build/build-ucrt64-clean \
+git clone https://github.com/win-ngs/kallisto-windows-build.git
+cd kallisto-windows-build
+```
+
+Configure and build kallisto from the same MSYS2 UCRT64 shell:
+
+```sh
+cmake -S kallisto-0.52.0-patch \
+  -B build-ucrt64-clean \
   -G "Unix Makefiles" \
-  -DCMAKE_MAKE_PROGRAM=C:/msys64/ucrt64/bin/mingw32-make.exe \
-  -DCMAKE_C_COMPILER=C:/msys64/ucrt64/bin/gcc.exe \
-  -DCMAKE_CXX_COMPILER=C:/msys64/ucrt64/bin/g++.exe \
+  -DCMAKE_MAKE_PROGRAM=mingw32-make \
+  -DCMAKE_C_COMPILER=gcc \
+  -DCMAKE_CXX_COMPILER=g++ \
   -DUSE_HDF5=ON \
   -DUSE_BAM=ON \
   -DBUILD_FUNCTESTING=ON \
@@ -136,7 +144,7 @@ cmake -S /c/path/to/kallisto-windows-build/kallisto-0.52.0 \
   -DCOMPILATION_ARCH=OFF \
   -DCMAKE_BUILD_TYPE=Release
 
-mingw32-make -C /c/path/to/kallisto-windows-build/build-ucrt64-clean -j2
+cmake --build build-ucrt64-clean
 ```
 
 The executable is created as:
@@ -208,7 +216,7 @@ The following checks were run:
 
 ```text
 cmake configure
-mingw32-make -j2
+build completed
 kallisto.exe version
 kallisto.exe index with Windows-style C:\... input/output paths
 kallisto.exe quant with Windows-style C:\... paths and a trailing backslash output directory
@@ -243,7 +251,7 @@ The upstream kallisto 0.52.0 source did not build unchanged in this
 MSYS2-UCRT64 environment. The compatibility changes are limited to build-system
 integration, line-ending handling, and vendored Bifrost source issues exposed by
 GCC 16 and the native Windows runtime. Paths below are relative to the upstream
-source directory `kallisto-0.52.0/`.
+source directory `kallisto-0.52.0-patch/`.
 
 | File | Change | Reason |
 |---|---|---|
@@ -257,7 +265,7 @@ source directory `kallisto-0.52.0/`.
 | `CMakeLists.txt` | Finds HDF5 from the active UCRT64 compiler prefix when `USE_HDF5=ON` | Avoids mixing MSYS HDF5 headers/libraries with UCRT64 builds |
 | `src/CMakeLists.txt` | Added `add_dependencies(kallisto_core bifrost)` and `add_dependencies(kallisto bifrost)` | Ensures Bifrost headers and `libbifrost.a` exist before kallisto objects and executable are built |
 | `src/CMakeLists.txt` | Links kallisto against `${binary_dir}/src/libbifrost.a` instead of the old in-source Bifrost build path | Matches the out-of-source Bifrost build directory |
-| `src/CMakeLists.txt` | Sets `ZLIB_INCLUDE_DIR`, `ZLIB_LIBRARY`, and `ZLIB_LIBRARY_RELEASE` from the active MinGW compiler prefix before `find_package(ZLIB)` | Avoids mixing `C:/msys64/usr/include` headers with UCRT64 headers |
+| `src/CMakeLists.txt` | Sets `ZLIB_INCLUDE_DIR`, `ZLIB_LIBRARY`, and `ZLIB_LIBRARY_RELEASE` from the active MinGW compiler prefix before `find_package(ZLIB)` | Avoids mixing MSYS headers with UCRT64 headers |
 | `src/CMakeLists.txt` | Uses the top-level `HTSLIB_*` and `HDF5_*` paths for include directories and link libraries | Allows `USE_BAM=ON` and `USE_HDF5=ON` to use MSYS2-UCRT64 packages |
 | `src/kseq.h` | Changed the local `kstring_t` typedef to use the `struct kstring_t` tag | Matches newer HTSlib headers that forward-declare `struct kstring_t` |
 | `ext/bifrost/src/DataStorage.tcc` | Changed `o.sz_link[i].load()` to `o.unitig_cs_link[i].load()` in the copy path | GCC 16 instantiates this template path and catches the invalid member reference |
@@ -279,7 +287,7 @@ change.
 
 kallisto is distributed under the BSD 2-Clause License. See
 [LICENSE.md](LICENSE.md). In the repository source tree, the original upstream
-license is also kept at `kallisto-0.52.0/license.txt`.
+license is also kept at `kallisto-0.52.0-patch/license.txt`.
 
 Runtime DLLs included in release ZIP files come from MSYS2 packages and retain
 their respective upstream licenses. See
