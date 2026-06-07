@@ -95,10 +95,6 @@ kallisto-0.52.0-patch/README.md
 kallisto-0.52.0-patch/license.txt
 ```
 
-Build outputs such as `build-ucrt64-clean/` and release ZIP files are not meant
-to be committed to git. Release ZIP files should be published through GitHub
-Releases.
-
 ## Building from Source
 
 You do not need to build kallisto yourself if you only want to use the released

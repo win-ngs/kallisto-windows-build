@@ -80,7 +80,7 @@ Copyright notice from upstream kallisto 0.52.0:
 
 The upstream kallisto license text is included in:
 
-  kallisto-0.52.0/license.txt
+  kallisto-0.52.0-patch/license.txt
 
 
 Bifrost
@@ -98,7 +98,7 @@ Copyright notice from the vendored Bifrost license file:
 
 Bifrost is linked into kallisto.exe from the vendored source tree:
 
-  kallisto-0.52.0/ext/bifrost/
+  kallisto-0.52.0-patch/ext/bifrost/
 
 
 MSYS2
