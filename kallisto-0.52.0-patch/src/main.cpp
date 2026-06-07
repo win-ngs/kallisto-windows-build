@@ -2,6 +2,11 @@
 #include <sys/stat.h>
 #include <time.h>
 
+#ifdef _WIN32
+#include <fcntl.h>
+#include <io.h>
+#endif
+
 #include <CompactedDBG.hpp>
 #include <algorithm>
 #include <cstdio>
@@ -1633,7 +1638,12 @@ bool CheckOptionsIndex(ProgramOptions &opt) {
     std::cerr << "Error: no FASTA files specified" << std::endl;
     ret = false;
   } else {
+    bool read_stdin = opt.transfasta.size() == 1 && opt.transfasta[0] == "-";
     for (auto &fasta : opt.transfasta) {
+      // MSYS2/UCRT64: in distinguish mode "-" is stdin, not a path to stat().
+      if (read_stdin && opt.distinguish) {
+        continue;
+      }
       // we want to generate the index, check k, index and transfasta
       struct stat stFileInfo;
       auto intStat = stat(fasta.c_str(), &stFileInfo);
@@ -1703,10 +1713,14 @@ bool CheckOptionsEM(ProgramOptions &opt, bool emonly = false) {
 
   // check for read files
   if (!emonly) {
+    // MSYS2/UCRT64: "-" is stdin only for read modes that consume one FASTQ stream.
+    bool read_stdin = opt.files.size() == 1 && !opt.batch_mode && !opt.bam &&
+                      opt.files[0] == "-" &&
+                      (opt.single_end || opt.long_read);
     if (opt.files.size() == 0) {
       std::cerr << ERROR_STR << " Missing read files" << std::endl;
       ret = false;
-    } else {
+    } else if (!read_stdin) {
       struct stat stFileInfo;
       for (auto &fn : opt.files) {
         auto intStat = stat(fn.c_str(), &stFileInfo);
@@ -2454,6 +2468,12 @@ std::string get_local_time() {
 }
 
 int main(int argc, char *argv[]) {
+#ifdef _WIN32
+  // MSYS2/UCRT64: make stdin byte-exact so piped gzip FASTA/FASTQ is not
+  // mangled by the native Windows text-mode CRT before zlib reads it.
+  (void)_setmode(_fileno(stdin), _O_BINARY);
+#endif
+
   std::cout.sync_with_stdio(false);
   setvbuf(stdout, NULL, _IOFBF, 1048576);
 

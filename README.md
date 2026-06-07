@@ -249,9 +249,9 @@ kallisto, version 0.52.0
 
 The upstream kallisto 0.52.0 source did not build unchanged in this
 MSYS2-UCRT64 environment. The compatibility changes are limited to build-system
-integration, line-ending handling, and vendored Bifrost source issues exposed by
-GCC 16 and the native Windows runtime. Paths below are relative to the upstream
-source directory `kallisto-0.52.0-patch/`.
+integration, line-ending handling, stdin binary handling, and vendored Bifrost
+source issues exposed by GCC 16 and the native Windows runtime. Paths below are
+relative to the patched source directory `kallisto-0.52.0-patch/`.
 
 | File | Change | Reason |
 |---|---|---|
@@ -267,6 +267,8 @@ source directory `kallisto-0.52.0-patch/`.
 | `src/CMakeLists.txt` | Links kallisto against `${binary_dir}/src/libbifrost.a` instead of the old in-source Bifrost build path | Matches the out-of-source Bifrost build directory |
 | `src/CMakeLists.txt` | Sets `ZLIB_INCLUDE_DIR`, `ZLIB_LIBRARY`, and `ZLIB_LIBRARY_RELEASE` from the active MinGW compiler prefix before `find_package(ZLIB)` | Avoids mixing MSYS headers with UCRT64 headers |
 | `src/CMakeLists.txt` | Uses the top-level `HTSLIB_*` and `HDF5_*` paths for include directories and link libraries | Allows `USE_BAM=ON` and `USE_HDF5=ON` to use MSYS2-UCRT64 packages |
+| `src/main.cpp` | Sets native Windows stdin to binary mode once at process startup with `_setmode(_fileno(stdin), _O_BINARY)` | Prevents piped gzip FASTA/FASTQ bytes from being changed by the UCRT text-mode stdin layer before zlib reads them |
+| `src/main.cpp` | Allows `quant --single -`, `quant --long -`, and `index --distinguish -` to pass input validation without `stat("-")`; paired-end `quant -` without a single-stream mode is still rejected | Matches the existing stdin readers without silently treating one `-` as paired input |
 | `src/kseq.h` | Changed the local `kstring_t` typedef to use the `struct kstring_t` tag | Matches newer HTSlib headers that forward-declare `struct kstring_t` |
 | `ext/bifrost/src/DataStorage.tcc` | Changed `o.sz_link[i].load()` to `o.unitig_cs_link[i].load()` in the copy path | GCC 16 instantiates this template path and catches the invalid member reference |
 | `ext/bifrost/src/kseq.h` | Changed Bifrost's local `kstring_t` typedef to use the `struct kstring_t` tag | Prevents a second `kstring_t` conflict when Bifrost and HTSlib headers are included together |
